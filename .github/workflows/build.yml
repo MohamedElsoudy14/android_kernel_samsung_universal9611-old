@@ -8,14 +8,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
-          fetch-depth: 1
-      - name: Install Packages
+
+      - name: Install Packages and Toolchain
         run: |
-          sudo apt update && sudo apt install -y build-essential bc gcc-aarch64-linux-gnu zip python3
+          sudo apt update
+          sudo apt install -y build-essential bc gcc-aarch64-linux-gnu zip python3 git
+          # تنزيل الـ Toolchain الناقص يدوياً عشان السكربت يلاقيه
+          git clone https://github.com/mvaisakh/gcc-arm64 "$GITHUB_WORKSPACE/toolchain" --depth=1
+
       - name: Build Kernel
         run: |
           chmod +x build_kernel.py
+          # إخبار السكربت بمكان الـ toolchain الجديد
+          export PATH="$GITHUB_WORKSPACE/toolchain/bin:$PATH"
           python3 build_kernel.py --oneui --target=m31
+
       - name: Upload Final Kernel
         uses: actions/upload-artifact@v4
         with:
