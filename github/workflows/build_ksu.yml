@@ -1,0 +1,13 @@
+name: Build Grass Kernel M31
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: |
+          sudo apt update && sudo apt install -y build-essential bc gcc-aarch64-linux-gnu zip python3
+          chmod +x build_kernel.py
+          python3 build_kernel.py --oneui --target=m31
