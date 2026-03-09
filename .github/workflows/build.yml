@@ -1,30 +1,63 @@
-name: Build Kernel
+name: Build Kernel Pro
 on:
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    # إضافة الـ Timeout لمنع استهلاك الوقت لو حصل تعليق
+    timeout-minutes: 45 
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: Install Compiler
+      # ⚡ تحسين 1: إضافة الـ Cache لتقليل وقت التحميل في المرات الجاية
+      - name: Cache Build Tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: kernel-ccache-${{ github.sha }}
+          restore-keys: kernel-ccache-
+
+      - name: Setup Build Environment
         run: |
+          set -e # إيقاف السكربت عند أي خطأ
           sudo apt update
-          sudo apt install -y build-essential bc gcc-aarch64-linux-gnu clang zip python3
-          # عمل وصلة عشان السكربت يشوف الكومبيلر في المكان اللي هو عايزه
-          sudo mkdir -p ./toolchain/bin
-          sudo ln -s /usr/bin/clang ./toolchain/bin/clang
+          sudo apt install -y build-essential bc gcc-aarch64-linux-gnu clang llvm lld zip python3 git libssl-dev flex bison libelf-dev make libncurses-dev ccache
+          
+          # إعداد ccache
+          ccache -M 5G
+          
+          mkdir -p $GITHUB_WORKSPACE/toolchain/bin
+          ln -sf /usr/bin/clang $GITHUB_WORKSPACE/toolchain/bin/clang
+          ln -sf /usr/bin/ld.lld $GITHUB_WORKSPACE/toolchain/bin/ld.lld
+          echo "$GITHUB_WORKSPACE/toolchain/bin" >> $GITHUB_PATH
 
       - name: Build Kernel
         run: |
+          set -e
           chmod +x build_kernel.py
-          # تشغيل البناء مباشرة
+          
+          # 🔧 تحسينات التوافق والأداء اللي ذكرتها
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export ARCH=arm64
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export USE_CCACHE=1
+          export CCACHE_DIR=$HOME/.ccache
+          export MAKEFLAGS="-j$(nproc)"
+          
+          # تشخيص النظام قبل البناء
+          clang --version
+          
           python3 build_kernel.py --oneui --target=m31
 
-      - name: Upload Final Kernel
+      - name: Upload Results
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel-M31-Final
-          path: "**/*.zip"
+          name: Kernel-M31-Professional
+          path: |
+            **/*.zip
+            **/Image.gz*
+          if-no-files-found: warn
